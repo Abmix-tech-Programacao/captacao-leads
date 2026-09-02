@@ -31,9 +31,10 @@ type SupabaseRequestOptions = {
 
 function getSupabaseConfig() {
   const url = process.env.SUPABASE_URL?.replace(/\/$/, "");
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const secretKey =
+    process.env.SUPABASE_SECRET_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-  if (!url || !serviceRoleKey) {
+  if (!url || !secretKey) {
     throw new SupabaseRequestError(
       "Supabase server credentials are not configured",
       503,
@@ -41,14 +42,14 @@ function getSupabaseConfig() {
     );
   }
 
-  return { url, serviceRoleKey };
+  return { url, secretKey };
 }
 
 export async function supabaseRequest<T>(
   path: string,
   options: SupabaseRequestOptions = {},
 ): Promise<T> {
-  const { url, serviceRoleKey } = getSupabaseConfig();
+  const { url, secretKey } = getSupabaseConfig();
   const normalizedPath = path.replace(/^\//, "");
 
   const response = await fetch(`${url}/rest/v1/${normalizedPath}`, {
@@ -56,8 +57,8 @@ export async function supabaseRequest<T>(
     headers: {
       Accept: "application/json",
       "Content-Type": "application/json",
-      apikey: serviceRoleKey,
-      Authorization: `Bearer ${serviceRoleKey}`,
+      apikey: secretKey,
+      Authorization: `Bearer ${secretKey}`,
       ...options.headers,
     },
     body: options.body === undefined ? undefined : JSON.stringify(options.body),
