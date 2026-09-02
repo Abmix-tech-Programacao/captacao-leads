@@ -1,0 +1,157 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: API specification
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: leads
+    description: Lead capture operations
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      description: Returns server health status
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+  /leads:
+    post:
+      operationId: createLead
+      tags: [leads]
+      summary: Capture a lead
+      description: Validates and stores a lead submitted by the landing page.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LeadInput"
+      responses:
+        "200":
+          description: Existing lead updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeadSubmissionResponse"
+        "201":
+          description: New lead created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeadSubmissionResponse"
+        "422":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Lead pipeline is not configured
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+    LeadInput:
+      type: object
+      required:
+        - name
+        - age
+        - email
+        - phone
+        - city
+        - consent
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 120
+        age:
+          type: integer
+          minimum: 1
+          maximum: 120
+        email:
+          type: string
+          format: email
+          maxLength: 320
+        phone:
+          type: string
+          minLength: 8
+          maxLength: 40
+        city:
+          type: string
+          minLength: 2
+          maxLength: 100
+        notes:
+          type: ["string", "null"]
+          maxLength: 1000
+        source:
+          type: ["string", "null"]
+          maxLength: 120
+        utm_source:
+          type: ["string", "null"]
+          maxLength: 120
+        utm_medium:
+          type: ["string", "null"]
+          maxLength: 120
+        utm_campaign:
+          type: ["string", "null"]
+          maxLength: 120
+        request_id:
+          type: ["string", "null"]
+          maxLength: 120
+        privacy_version:
+          type: ["string", "null"]
+          maxLength: 30
+        consent:
+          type: boolean
+    LeadSubmissionResponse:
+      type: object
+      required:
+        - success
+        - created
+        - message
+      properties:
+        success:
+          type: boolean
+          const: true
+        created:
+          type: boolean
+        message:
+          type: string
+    ErrorResponse:
+      type: object
+      required:
+        - success
+        - error
+      properties:
+        success:
+          type: boolean
+          const: false
+        error:
+          type: string
+        errors:
+          type: object
+          additionalProperties:
+            type: string
+
