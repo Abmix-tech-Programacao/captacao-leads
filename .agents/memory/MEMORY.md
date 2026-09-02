@@ -1,0 +1,1 @@
+- [Supabase RLS with connector](supabase-connector-rls.md) — app writes require a server credential or narrowly scoped RPC; anon access is blocked by RLS.
