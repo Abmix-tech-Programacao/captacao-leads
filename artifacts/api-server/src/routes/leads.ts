@@ -1,8 +1,5 @@
 import { Router, type IRouter } from "express";
-import {
-  CreateLeadBody,
-  CreateLeadResponse,
-} from "@workspace/api-zod";
+import { z } from "zod";
 import { processLead } from "../lib/leads";
 import {
   isSupabasePermissionError,
@@ -10,6 +7,22 @@ import {
 } from "../lib/supabase";
 
 const router: IRouter = Router();
+
+const CreateLeadBody = z.object({
+  name: z.string().trim().min(2).max(120),
+  age: z.coerce.number().int().min(18).max(120),
+  email: z.string().trim().email().max(320),
+  phone: z.string().trim().min(8).max(40),
+  city: z.string().trim().min(2).max(100),
+  notes: z.string().trim().max(1000).nullish(),
+  source: z.string().trim().max(120).nullish(),
+  utm_source: z.string().trim().max(120).nullish(),
+  utm_medium: z.string().trim().max(120).nullish(),
+  utm_campaign: z.string().trim().max(120).nullish(),
+  request_id: z.string().trim().max(120).nullish(),
+  privacy_version: z.string().trim().max(30).nullish(),
+  consent: z.literal(true),
+});
 
 const validationMessages: Record<string, string> = {
   name: "Informe seu nome completo.",
@@ -43,15 +56,11 @@ router.post("/leads", async (req, res): Promise<void> => {
   try {
     const result = await processLead(parsed.data);
     const status = result.created ? 201 : 200;
-    res.status(status).json(
-      CreateLeadResponse.parse({
-        success: true,
-        created: result.created,
-        message: result.created
-          ? "Cadastro recebido."
-          : "Cadastro atualizado.",
-      }),
-    );
+    res.status(status).json({
+      success: true,
+      created: result.created,
+      message: result.created ? "Cadastro recebido." : "Cadastro atualizado.",
+    });
   } catch (error) {
     req.log.error({ err: error }, "Lead submission failed");
     if (isSupabasePermissionError(error)) {
