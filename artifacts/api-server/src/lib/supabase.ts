@@ -1,5 +1,3 @@
-import { ReplitConnectors } from "@replit/connectors-sdk";
-
 export class SupabaseRequestError extends Error {
   constructor(
     message: string,
@@ -31,18 +29,38 @@ type SupabaseRequestOptions = {
   headers?: Record<string, string>;
 };
 
+function getSupabaseConfig() {
+  const url = process.env.SUPABASE_URL?.replace(/\/$/, "");
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!url || !serviceRoleKey) {
+    throw new SupabaseRequestError(
+      "Supabase server credentials are not configured",
+      503,
+      { code: "SUPABASE_NOT_CONFIGURED" },
+    );
+  }
+
+  return { url, serviceRoleKey };
+}
+
 export async function supabaseRequest<T>(
   path: string,
   options: SupabaseRequestOptions = {},
 ): Promise<T> {
-  const connectors = new ReplitConnectors();
-  const response = await connectors.proxy("supabase", `/rest/v1/${path}`, {
-    method: options.method,
-    body: options.body,
+  const { url, serviceRoleKey } = getSupabaseConfig();
+  const normalizedPath = path.replace(/^\//, "");
+
+  const response = await fetch(`${url}/rest/v1/${normalizedPath}`, {
+    method: options.method ?? "GET",
     headers: {
       Accept: "application/json",
+      "Content-Type": "application/json",
+      apikey: serviceRoleKey,
+      Authorization: `Bearer ${serviceRoleKey}`,
       ...options.headers,
     },
+    body: options.body === undefined ? undefined : JSON.stringify(options.body),
   });
 
   const text = await response.text();
