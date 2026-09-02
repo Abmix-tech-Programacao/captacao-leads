@@ -1,183 +1,74 @@
 # Captação de Leads
 
-Projeto de automação para captar novos cadastros em uma landing page e organizar os leads para futura venda.
+API para receber cadastros de uma landing page, validar os dados, deduplicar
+leads e armazená-los no Supabase. O projeto mantém o frontend desacoplado para
+ser integrado posteriormente ao frontend de outro colaborador.
 
-> Status: planejamento — a configuração técnica ainda não foi iniciada.
+## Estado atual
 
-## Objetivo
+- API Express em `artifacts/api-server`
+- Contrato OpenAPI em `lib/api-spec/openapi.yaml`
+- Validação gerada com Zod
+- Supabase como fonte oficial dos dados
+- Pipeline direto como padrão
+- Pipeline n8n preparado para ativação futura
+- Google Sheets planejado como visão operacional, não como fonte primária
 
-Criar uma landing page exclusiva para captação de leads com os campos:
+## Rodar localmente
 
-- Nome
-- Idade
-- E-mail
-- Telefone/WhatsApp
-- Cidade
-- Observações
-- Consentimento para contato e política de privacidade
-
-Após o envio, o cadastro deve ser validado, protegido contra duplicidade, salvo em um banco de dados e disponibilizado em uma planilha operacional.
-
-## Arquitetura recomendada
-
-```text
-VISITANTE
-   ↓ HTTPS
-LANDING PAGE
-   ↓ formulário
-WEBHOOK/API DO N8N
-   ↓ validação + normalização + deduplicação
-SUPABASE — fonte oficial dos dados
-   ↓ sincronização
-GOOGLE SHEETS — planilha completa de leads
-   ↓
-FUTURA VENDA / CONTATO COMERCIAL
+```bash
+pnpm install
+pnpm --filter @workspace/api-server run dev
 ```
 
-No MVP, o webhook do n8n funciona como a API de entrada. Uma API separada só será criada quando outros sistemas precisarem consumir os leads.
+O serviço usa a porta fornecida pelo workflow do Replit.
 
-## Ferramentas escolhidas
+## Endpoints
 
-| Componente | Escolha inicial | Motivo |
-|---|---|---|
-| Desenvolvimento | Google Antigravity | Trabalho orientado por agentes em um projeto versionado |
-| Versionamento | GitHub | Histórico, README e colaboração desde o primeiro commit |
-| Landing page | Página própria | Controle de marca e possibilidade de evolução |
-| Automação | n8n | Orquestração visual com webhooks e integrações |
-| Banco principal | Supabase | PostgreSQL gerenciado e API sobre os dados |
-| Saída comercial | Google Sheets | Consulta simples e exportação para vendas |
-| IA | Fora do MVP | Não é necessária para cadastrar leads |
+### `GET /api/healthz`
 
-## Fluxo do lead
+Verifica se o serviço está respondendo.
 
-1. O visitante acessa a landing page.
-2. Preenche o formulário.
-3. A entrada é validada.
-4. O n8n recebe o cadastro pelo webhook.
-5. E-mail e telefone são normalizados.
-6. O sistema verifica duplicidade.
-7. O lead é gravado no Supabase.
-8. O registro é sincronizado com a Google Sheets.
-9. O visitante recebe uma confirmação.
-10. O lead fica disponível para contato e futura venda.
+### `POST /api/leads`
 
-## Dados do lead
+Recebe `name`, `age`, `email`, `phone`, `city` e `consent`, além de campos
+opcionais de observações, origem e UTMs. A API normaliza e-mail/telefone,
+registra o consentimento e atualiza um lead existente quando o e-mail ou
+telefone já estiver cadastrado.
 
-### Dados informados
+O contrato completo está em [`docs/api-contract.md`](docs/api-contract.md).
 
-- Nome
-- Idade
-- E-mail
-- Telefone/WhatsApp
-- Cidade
-- Observações
+## Configuração
 
-### Dados operacionais
+O conector Supabase gerenciado pelo Replit deve estar vinculado ao projeto com
+uma credencial de servidor que possa gravar em `public.leads` respeitando a
+política de RLS. A credencial nunca deve ser colocada no frontend, no README ou
+no GitHub.
 
-- ID do lead
-- Data de cadastro
-- Status
-- Responsável
-- Prioridade
-- Último contato
-- Próxima ação
-- Origem e campanhas (UTM)
+Para usar o n8n posteriormente:
 
-### Dados de privacidade
+```text
+LEAD_PIPELINE_MODE=n8n
+N8N_WEBHOOK_URL=https://seu-n8n.example/webhook/leads
+```
 
-- Consentimento para contato
-- Data e hora do consentimento
-- Versão do aviso de privacidade
-- Política de retenção
+Veja [`docs/n8n-workflow.md`](docs/n8n-workflow.md) para o desenho do fluxo.
 
-Status sugeridos: `novo`, `contatado`, `qualificado`, `convertido`, `não interessado`.
+## Verificação
 
-## Fonte oficial e planilha
+```bash
+pnpm run typecheck
+pnpm --filter @workspace/api-spec run codegen
+```
 
-O Supabase será a fonte oficial dos dados. A Google Sheets será uma visão operacional ou cópia sincronizada para acompanhamento comercial.
+O typecheck passa no workspace atual. A gravação real depende da conexão
+Supabase usar uma credencial de servidor; uma chave anon é bloqueada pela RLS
+intencionalmente.
 
-A planilha não deve ser o único banco do sistema, pois isso dificulta deduplicação, permissões, histórico e crescimento.
+## Segurança
 
-## Segurança e privacidade
-
-- Usar HTTPS em toda a jornada.
-- Não colocar chaves ou segredos no código do navegador.
-- Validar e limitar requisições no endpoint público.
-- Usar proteção anti-spam e, se necessário, CAPTCHA/Turnstile.
-- Evitar dados pessoais completos nos logs.
-- Restringir acesso ao banco por permissões mínimas.
-- Registrar consentimento e finalidade do contato.
-- Definir prazo de retenção e processo de exclusão.
-- Definir o tratamento para pessoas menores de idade.
-
-Este documento descreve decisões de produto e arquitetura; não constitui garantia automática de conformidade com a LGPD.
-
-## Testes planejados
-
-- Cadastro válido.
-- Campos obrigatórios vazios.
-- E-mail inválido.
-- Telefone inválido.
-- Idade fora da regra definida.
-- Lead duplicado por e-mail ou telefone.
-- Duplo clique no envio.
-- Falha do n8n, do banco ou da planilha.
-- Tentativa de spam.
-- Uso em celular.
-- Ausência de segredos no frontend.
-- Confirmação sem exposição de dados pessoais.
-
-## Custos de referência
-
-Os valores variam por região, impostos, câmbio e volume de uso.
-
-- n8n Cloud: Starter a partir de €20/mês no pagamento anual; Pro a partir de €50/mês.
-- Supabase: plano Free para MVP; Pro a partir de US$25/mês.
-- Tally: alternativa no-code com plano gratuito; Pro a partir de US$24/mês.
-- Hospedagem da página: avaliar Vercel ou equivalente conforme uso comercial.
-
-## Roadmap
-
-### Fase 1 — Planejamento
-
-- [x] Definir objetivo
-- [x] Definir arquitetura simples
-- [x] Definir campos do lead
-- [x] Definir ferramentas candidatas
-- [x] Criar README inicial
-
-### Fase 2 — MVP
-
-- [ ] Construir landing page
-- [ ] Definir identidade visual e texto da oferta
-- [ ] Criar fluxo de entrada no n8n
-- [ ] Criar estrutura do banco
-- [ ] Criar planilha operacional
-- [ ] Validar testes principais
-
-### Fase 3 — Operação
-
-- [ ] Publicar a landing page
-- [ ] Monitorar falhas e duplicidades
-- [ ] Definir rotina de contato
-- [ ] Medir origem e conversão dos leads
-
-### Fase 4 — Evolução
-
-- [ ] Adicionar painel de acompanhamento
-- [ ] Integrar CRM ou WhatsApp, se necessário
-- [ ] Avaliar classificação automática com IA
-- [ ] Criar API pública versionada somente se houver necessidade
-
-## Decisões importantes
-
-1. Começar simples: n8n como webhook/API de entrada.
-2. Ter apenas uma fonte oficial: Supabase.
-3. Usar Google Sheets como saída operacional, não como banco principal.
-4. Não usar IA no cadastro inicial.
-5. Versionar decisões e código no GitHub desde o primeiro commit.
-6. Trabalhar no repositório com o Google Antigravity.
-
-## Próximo passo
-
-Depois deste README, o projeto deve passar por uma definição visual da landing page e pela confirmação do texto da oferta. A configuração técnica do n8n, Supabase e hospedagem será feita somente na etapa seguinte.
+- RLS permanece ativo no Supabase.
+- A API limita o corpo JSON a 32 KB.
+- Logs não registram o conteúdo do lead.
+- Erros retornados ao frontend não expõem detalhes do provedor.
+- Rate limit e proteção anti-spam devem ser adicionados antes da publicação.
