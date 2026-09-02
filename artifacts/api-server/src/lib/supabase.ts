@@ -52,15 +52,23 @@ export async function supabaseRequest<T>(
   const { url, secretKey } = getSupabaseConfig();
   const normalizedPath = path.replace(/^\//, "");
 
+  const headers: Record<string, string> = {
+    Accept: "application/json",
+    "Content-Type": "application/json",
+    apikey: secretKey,
+    ...options.headers,
+  };
+
+  // As novas chaves sb_secret_* do Supabase nao sao JWTs e devem ser
+  // enviadas no header apikey. Mantemos Authorization apenas para a chave
+  // legacy service_role, que continua baseada em JWT.
+  if (!secretKey.startsWith("sb_secret_")) {
+    headers.Authorization = `Bearer ${secretKey}`;
+  }
+
   const response = await fetch(`${url}/rest/v1/${normalizedPath}`, {
     method: options.method ?? "GET",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-      apikey: secretKey,
-      Authorization: `Bearer ${secretKey}`,
-      ...options.headers,
-    },
+    headers,
     body: options.body === undefined ? undefined : JSON.stringify(options.body),
   });
 
